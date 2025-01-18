@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-demo
+  namespace: homework
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    lifecycle:
+      preStop:
+        exec:
+          command:
+            - rm -f /homework/index.html
+    ports:
+    - containerPort: 8000
+    volumeMounts:
+    - name: homework
+      mountPath: /usr/share/nginx/html/homework
+    - name: nginx-config
+      mountPath: /etc/nginx/conf.d
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128M"
+      limits:
+        cpu: "50m"
+        memory: "128M"        
+  # These containers are run during pod initialization
+  initContainers:
+  - name: install
+    image: busybox:1.28
+    command:
+    - wget
+    - "-O"
+    - "/init/index.html"
+    - http://info.cern.ch
+    volumeMounts:
+    - name: homework
+      mountPath: "/init"
+  dnsPolicy: Default
+  volumes:
+  - name: nginx-config
+    configMap:
+      name: nginx-config
+  - name: homework
+    emptyDir: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  custom.conf: |
+    server {
+        listen 8000;
+        root /usr/share/nginx/html/homework;
+        index index.html;
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
