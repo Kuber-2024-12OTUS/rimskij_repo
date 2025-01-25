@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: homework
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1 # this is the new alpha field, whose default value is 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeSelector:
+        homework: "true"  # Указываем метку для выбора узлов
+      containers:
+      - name: nginx
+        image: nginx
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - rm -f /homework/index.html
+        ports:
+        - containerPort: 8000
+          name: http-port
+        volumeMounts:
+        - name: homework
+          mountPath: /homework
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128M"
+          limits:
+            cpu: "50m"
+            memory: "128M"
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: http-port
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      initContainers:
+      - name: install
+        image: busybox:1.28
+        command:
+        - wget
+        - "-O"
+        - "/init/index.html"
+        - http://info.cern.ch
+        volumeMounts:
+        - name: homework
+          mountPath: "/init"
+      dnsPolicy: Default
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: homework
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: homework
+data:
+  custom.conf: |
+    server {
+        listen 8000;
+        root /homework;
+        index index.html;
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
