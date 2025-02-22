@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-pvc
+  namespace: homework
+spec:
+  storageClassName: "nginx-storage-class" # Empty string must be explicitly set otherwise default StorageClass will be set
+  volumeName: nginx-volume

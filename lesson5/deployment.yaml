@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: homework
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1 
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      nodeSelector:
+        homework: "true" 
+      containers:
+      - name: nginx
+        image: nginx
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - rm -f /homework/conf/file
+        ports:
+        - containerPort: 8000
+          name: http-port
+        volumeMounts:
+        - name: homework
+          mountPath: /homework/conf
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128M"
+          limits:
+            cpu: "50m"
+            memory: "128M"
+        readinessProbe:
+          httpGet:
+            path: /conf/file
+            port: http-port
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      initContainers:
+      - name: install
+        image: busybox:1.28
+        command:
+        - wget
+        - "-O"
+        - "/init/index.html"
+        - http://info.cern.ch
+        volumeMounts:
+        - name: homework
+          mountPath: "/init"
+      dnsPolicy: Default
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: nginx-volume
+        persistentVolumeClaim:
+          claimName: nginx-pvc
+
